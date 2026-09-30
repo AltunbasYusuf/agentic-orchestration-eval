@@ -1,0 +1,883 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Browser Tetris</title>
+<style>
+  :root {
+    /* colors */
+    --surface-bg: #0b0d0c;
+    --surface-panel: #121512;
+    --board-bg: #000000;
+    --grid-line: #173617;
+    --outline: #33ff33;
+    --flash-color: #ffffff;
+    --text-primary: #33ff33;
+    --text-dim: #1f7a1f;
+    --state-paused: #ffb000;
+    --state-game-over: #ff3333;
+    --piece-i-cyan: #00f0f0;
+    --piece-o-yellow: #f0f000;
+    --piece-t-purple: #a000f0;
+    --piece-s-green: #00f000;
+    --piece-z-red: #f00000;
+    --piece-j-blue: #0000f0;
+    --piece-l-orange: #f0a000;
+
+    /* typography */
+    --typography-display-font-family: ui-monospace, 'Courier New', monospace;
+    --typography-display-font-size: 32px;
+    --typography-display-font-weight: 700;
+    --typography-display-line-height: 1.1;
+    --typography-display-letter-spacing: 0.02em;
+    --typography-heading-font-family: ui-monospace, 'Courier New', monospace;
+    --typography-heading-font-size: 16px;
+    --typography-heading-font-weight: 700;
+    --typography-heading-line-height: 1.3;
+    --typography-heading-letter-spacing: 0.05em;
+    --typography-body-font-family: ui-monospace, 'Courier New', monospace;
+    --typography-body-font-size: 14px;
+    --typography-body-font-weight: 400;
+    --typography-body-line-height: 1.4;
+    --typography-label-caps-font-family: ui-monospace, 'Courier New', monospace;
+    --typography-label-caps-font-size: 11px;
+    --typography-label-caps-font-weight: 700;
+    --typography-label-caps-line-height: 1.4;
+    --typography-label-caps-letter-spacing: 0.1em;
+
+    /* rounded */
+    --rounded-sm: 0px;
+    --rounded-default: 0px;
+    --rounded-md: 0px;
+    --rounded-lg: 0px;
+    --rounded-full: 9999px;
+
+    /* spacing */
+    --spacing-unit: 8px;
+    --spacing-cell: 24px;
+    --spacing-gutter: 16px;
+    --spacing-panel-padding: 12px;
+  }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--surface-bg);
+    font-family: var(--typography-body-font-family);
+  }
+
+  body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: var(--spacing-gutter);
+    min-height: 100vh;
+  }
+
+  #board-wrap {
+    position: relative;
+    display: block;
+  }
+
+  #board {
+    background: var(--board-bg);
+    border: 1px solid var(--outline);
+    border-radius: var(--rounded-default);
+    display: block;
+  }
+
+  #overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.85);
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-unit);
+    text-align: center;
+  }
+
+  #overlay.visible {
+    display: flex;
+  }
+
+  #overlay-title {
+    font-family: var(--typography-display-font-family);
+    font-size: var(--typography-display-font-size);
+    font-weight: var(--typography-display-font-weight);
+    line-height: var(--typography-display-line-height);
+    letter-spacing: var(--typography-display-letter-spacing);
+  }
+
+  #overlay-subtitle {
+    font-family: var(--typography-heading-font-family);
+    font-size: var(--typography-heading-font-size);
+    font-weight: var(--typography-heading-font-weight);
+    color: var(--text-primary);
+  }
+
+  #overlay-hint {
+    font-family: var(--typography-body-font-family);
+    font-size: var(--typography-body-font-size);
+    color: var(--text-dim);
+  }
+
+  .control-hint {
+    /* label-caps role ("any fine print" per DESIGN.md) -- this is its one
+       actual use in the file; .hud-label uses heading instead. */
+    font-family: var(--typography-label-caps-font-family);
+    font-size: var(--typography-label-caps-font-size);
+    font-weight: var(--typography-label-caps-font-weight);
+    letter-spacing: var(--typography-label-caps-letter-spacing);
+    color: var(--text-dim);
+    margin-top: var(--spacing-unit);
+  }
+
+  #hud {
+    background: var(--surface-panel);
+    border: 1px solid var(--outline);
+    border-radius: var(--rounded-default);
+    padding: var(--spacing-panel-padding);
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-unit);
+  }
+
+  #preview-panel {
+    background: var(--surface-panel);
+    border: 1px solid var(--outline);
+    border-radius: var(--rounded-default);
+    padding: var(--spacing-panel-padding);
+    box-sizing: border-box;
+    /* No DESIGN.md spacing token is fine-grained enough for this small a gap
+       (the scale's smallest step is --spacing-unit at 8px) -- 2px is a
+       deliberate, undersized exception, matching .hud-value's same literal. */
+    margin-top: 2px;
+  }
+
+  #preview {
+    display: block; /* canvas defaults to inline, leaving a baseline descender gap -- same fix as #board */
+  }
+
+  .hud-label {
+    /* DESIGN.md's Typography and Components sections both specify "heading"
+       type for HUD labels; the hud-panel token block itself had a stray
+       label-caps reference, corrected to match. */
+    font-family: var(--typography-heading-font-family);
+    font-size: var(--typography-heading-font-size);
+    font-weight: var(--typography-heading-font-weight);
+    line-height: var(--typography-heading-line-height);
+    letter-spacing: var(--typography-heading-letter-spacing);
+    color: var(--text-dim);
+  }
+
+  .hud-value {
+    font-family: var(--typography-body-font-family);
+    font-size: var(--typography-body-font-size);
+    font-weight: var(--typography-body-font-weight);
+    line-height: var(--typography-body-line-height);
+    color: var(--text-primary);
+    margin-top: 2px;
+    overflow-wrap: anywhere; /* defensive: scores can grow to several digits with no cap */
+  }
+</style>
+</head>
+<body>
+<div id="board-wrap">
+  <canvas id="board">Your browser does not support the Canvas element required to play Browser Tetris.</canvas>
+  <!-- Shared overlay (Architecture Structural Seed): Pause today, Game Over
+       reuses the same element in Story 1.8. Starts hidden -- state.phase
+       defaults to 'playing'. -->
+  <div id="overlay">
+    <div id="overlay-title"></div>
+    <div id="overlay-subtitle"></div>
+    <div id="overlay-hint"></div>
+  </div>
+</div>
+<!-- Initial 0/1/0 text below must match state.score/level/linesCleared's
+     defaults in the script -- updateHud() overwrites it on the first frame,
+     but keep them in sync so there's no flash of mismatched content. -->
+<div id="hud">
+  <div>
+    <div class="hud-label">SCORE</div>
+    <div class="hud-value" id="hud-score">0</div>
+  </div>
+  <div>
+    <div class="hud-label">LEVEL</div>
+    <div class="hud-value" id="hud-level">1</div>
+  </div>
+  <div>
+    <div class="hud-label">LINES</div>
+    <div class="hud-value" id="hud-lines">0</div>
+  </div>
+  <div>
+    <div class="hud-label">NEXT</div>
+    <div id="preview-panel">
+      <canvas id="preview">Your browser does not support the Canvas element required to play Browser Tetris.</canvas>
+    </div>
+  </div>
+  <!-- Persistent static control hint (EXPERIENCE.md Voice and Tone / UX-DR8) --
+       distinct from the overlay's phase-specific hints, always visible. -->
+  <div class="control-hint">P: PAUSE&nbsp;&nbsp;R: RESTART</div>
+</div>
+<script>
+(function () {
+  'use strict';
+
+  // ---- state ----
+
+  const BOARD_COLS = 10;
+  const BOARD_ROWS = 20;
+  const CELL = 24; // matches the --spacing-cell design token; canvas pixel math is derived from this, not restated
+
+  // Colors are read from the CSS custom properties in :root, not duplicated as
+  // JS literals — DESIGN.md's token set stays the single source of truth.
+  const rootStyle = getComputedStyle(document.documentElement);
+  function token(name) {
+    return rootStyle.getPropertyValue(name).trim();
+  }
+  const PIECE_COLORS = {
+    I: token('--piece-i-cyan'),
+    O: token('--piece-o-yellow'),
+    T: token('--piece-t-purple'),
+    S: token('--piece-s-green'),
+    Z: token('--piece-z-red'),
+    J: token('--piece-j-blue'),
+    L: token('--piece-l-orange')
+  };
+  const BOARD_BG = token('--board-bg');
+  const GRID_LINE = token('--grid-line');
+  const FLASH_COLOR = token('--flash-color');
+  const STATE_PAUSED_COLOR = token('--state-paused');
+  const STATE_GAME_OVER_COLOR = token('--state-game-over');
+
+  // 7 piece types x 4 rotation states x occupied [row, col] offsets.
+  // Single shared source of truth: read by spawn (this story), and by
+  // rotation/collision/render in later stories.
+  const PIECE_SHAPES = {
+    I: [
+      [[1, 0], [1, 1], [1, 2], [1, 3]],
+      [[0, 2], [1, 2], [2, 2], [3, 2]],
+      [[2, 0], [2, 1], [2, 2], [2, 3]],
+      [[0, 1], [1, 1], [2, 1], [3, 1]]
+    ],
+    O: [
+      [[0, 1], [0, 2], [1, 1], [1, 2]],
+      [[0, 1], [0, 2], [1, 1], [1, 2]],
+      [[0, 1], [0, 2], [1, 1], [1, 2]],
+      [[0, 1], [0, 2], [1, 1], [1, 2]]
+    ],
+    T: [
+      [[0, 1], [1, 0], [1, 1], [1, 2]],
+      [[0, 1], [1, 1], [1, 2], [2, 1]],
+      [[1, 0], [1, 1], [1, 2], [2, 1]],
+      [[0, 1], [1, 0], [1, 1], [2, 1]]
+    ],
+    S: [
+      [[0, 1], [0, 2], [1, 0], [1, 1]],
+      [[0, 1], [1, 1], [1, 2], [2, 2]],
+      [[1, 1], [1, 2], [2, 0], [2, 1]],
+      [[0, 0], [1, 0], [1, 1], [2, 1]]
+    ],
+    Z: [
+      [[0, 0], [0, 1], [1, 1], [1, 2]],
+      [[0, 2], [1, 1], [1, 2], [2, 1]],
+      [[1, 0], [1, 1], [2, 1], [2, 2]],
+      [[0, 1], [1, 0], [1, 1], [2, 0]]
+    ],
+    J: [
+      [[0, 0], [1, 0], [1, 1], [1, 2]],
+      [[0, 1], [0, 2], [1, 1], [2, 1]],
+      [[1, 0], [1, 1], [1, 2], [2, 2]],
+      [[0, 1], [1, 1], [2, 0], [2, 1]]
+    ],
+    L: [
+      [[0, 2], [1, 0], [1, 1], [1, 2]],
+      [[0, 1], [1, 1], [2, 1], [2, 2]],
+      [[1, 0], [1, 1], [1, 2], [2, 0]],
+      [[0, 0], [0, 1], [1, 1], [2, 1]]
+    ]
+  };
+
+  const SPAWN_ROW = 0;
+  const SPAWN_COL = 3;
+
+  function createEmptyRow() {
+    return new Array(BOARD_COLS).fill(null);
+  }
+
+  function randomPieceType() {
+    const types = Object.keys(PIECE_SHAPES);
+    return types[Math.floor(Math.random() * types.length)];
+  }
+
+  // AD-5: length stays >= 1 always. spawnPiece() dequeues the front and
+  // pushes one new type each call; the preview renderer only peeks index 0.
+  // Single reusable seed so state init and a future restart (AD-8: reset
+  // activePiece + nextQueue + score + level + linesCleared together) can't
+  // drift apart by hand-duplicating this logic.
+  function seedNextQueue() {
+    return [randomPieceType()];
+  }
+
+  const state = {
+    board: Array.from({ length: BOARD_ROWS }, createEmptyRow),
+    activePiece: null,
+    flashRows: [], // { row, timeRemaining } -- render-layer echo only, see AD-9
+    score: 0,
+    level: 1,
+    linesCleared: 0,
+    nextQueue: seedNextQueue(),
+    phase: 'playing' // 'playing' | 'paused' -- Game Over ('gameover') arrives in Story 1.8
+  };
+
+  // ---- input ----
+  // AD-7: keydown/keyup only set/clear fields here, never touch `state` directly.
+  // Held intents are booleans toggled on keydown/keyup; edge-triggered intents are
+  // one-shot flags set on keydown and cleared by update() once consumed.
+  const input = {
+    left: false,
+    right: false,
+    down: false,
+    rotate: false,
+    hardDrop: false,
+    pause: false,
+    restart: false
+  };
+
+  window.addEventListener('keydown', function (e) {
+    if (e.key === 'ArrowLeft') {
+      input.left = true;
+      e.preventDefault();
+    } else if (e.key === 'ArrowRight') {
+      input.right = true;
+      e.preventDefault();
+    } else if (e.key === 'ArrowDown') {
+      input.down = true;
+      e.preventDefault();
+    } else if (e.key === 'ArrowUp') {
+      if (!e.repeat) {
+        input.rotate = true;
+      }
+      e.preventDefault();
+    } else if (e.key === ' ' || e.key === 'Spacebar') {
+      if (!e.repeat) {
+        input.hardDrop = true;
+      }
+      e.preventDefault();
+    } else if (e.key === 'p' || e.key === 'P') {
+      if (!e.repeat) {
+        input.pause = true;
+      }
+      e.preventDefault();
+    } else if (e.key === 'r' || e.key === 'R') {
+      if (!e.repeat) {
+        input.restart = true;
+      }
+      e.preventDefault();
+    }
+  });
+
+  window.addEventListener('keyup', function (e) {
+    if (e.key === 'ArrowLeft') {
+      input.left = false;
+    } else if (e.key === 'ArrowRight') {
+      input.right = false;
+    } else if (e.key === 'ArrowDown') {
+      input.down = false;
+    }
+  });
+
+  // The browser does not guarantee a keyup is delivered if focus leaves the
+  // window/tab while a key is held (e.g. alt-tab) -- without this, input.left
+  // /input.right/input.down could get stuck true and the piece would drift
+  // or soft-drop forever.
+  window.addEventListener('blur', function () {
+    input.left = false;
+    input.right = false;
+    input.down = false;
+    input.rotate = false;
+    input.hardDrop = false;
+    input.pause = false;
+    input.restart = false;
+  });
+
+  // ---- update ----
+  // AD-1: update(dt) is the only function that mutates `state`.
+
+  const MOVE_REPEAT_INTERVAL = 0.1; // seconds between repeat moves while a direction is held; not specified upstream, chosen for a responsive feel
+  const FALL_INTERVAL = 0.8; // seconds per row at base (level 1) speed; scaled by state.level via currentFallInterval()
+  const SOFT_DROP_INTERVAL = 0.05; // seconds per row while Down is held -- well under FALL_INTERVAL, satisfies "faster than base fall speed"
+  const FLASH_DURATION = 0.15; // seconds a cleared row flashes; not pinned upstream (AD-9), chosen for a quick, noticeable pop
+  const SCORE_TABLE = { 1: 100, 2: 300, 3: 500, 4: 800 }; // x current level, per PRD FR-8
+  const FALL_SPEED_DECAY = 0.9; // 10% faster per level; not pinned upstream (AD-9 leaves the curve open), monotonically non-increasing
+  const MIN_FALL_INTERVAL = 0.1; // floor so fall speed never becomes imperceptible/unplayable at high levels
+
+  function currentFallInterval() {
+    return Math.max(MIN_FALL_INTERVAL, FALL_INTERVAL * Math.pow(FALL_SPEED_DECAY, state.level - 1));
+  }
+
+  let moveTimer = 0;
+  let movePrevDir = 0;
+  let fallTimer = 0;
+
+  function isValidPosition(row, col, cells) {
+    for (let i = 0; i < cells.length; i++) {
+      const r = row + cells[i][0];
+      const c = col + cells[i][1];
+      if (c < 0 || c >= BOARD_COLS || r < 0 || r >= BOARD_ROWS) {
+        return false;
+      }
+      if (state.board[r][c]) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  function tryMove(dr, dc) {
+    const piece = state.activePiece;
+    if (!piece) {
+      return;
+    }
+    const cells = PIECE_SHAPES[piece.type][piece.rotation];
+    const newRow = piece.row + dr;
+    const newCol = piece.col + dc;
+    if (isValidPosition(newRow, newCol, cells)) {
+      piece.row = newRow;
+      piece.col = newCol;
+    }
+  }
+
+  function tryRotate() {
+    const piece = state.activePiece;
+    if (!piece) {
+      return;
+    }
+    const newRotation = (piece.rotation + 1) % 4;
+    const cells = PIECE_SHAPES[piece.type][newRotation];
+    if (isValidPosition(piece.row, piece.col, cells)) {
+      piece.rotation = newRotation;
+    }
+  }
+
+  // Lock only ever happens when a downward step is attempted and fails --
+  // never merely because the piece is adjacent to a surface ("on contact").
+  // That is what FR-4 means by soft drop not locking on contact: it just
+  // raises the fall rate; the lock trigger itself is identical to gravity's.
+  // Full rows are removed and empty rows unshifted at the top, synchronously,
+  // in the same pass that detected them (AD-9) -- never delayed. The flash is
+  // a separate render-layer echo (state.flashRows), decoupled from this
+  // mutation. No scoring here -- FR-8/FR-9 are Story 1.5; the return value
+  // (count of rows cleared) is this function's contract for that story.
+  function clearCompletedLines() {
+    const fullRows = [];
+    for (let r = 0; r < BOARD_ROWS; r++) {
+      if (state.board[r].every(function (cell) { return cell !== null; })) {
+        fullRows.push(r);
+      }
+    }
+    if (fullRows.length === 0) {
+      return 0;
+    }
+    for (let i = fullRows.length - 1; i >= 0; i--) {
+      state.board.splice(fullRows[i], 1);
+    }
+    for (let i = 0; i < fullRows.length; i++) {
+      state.board.unshift(createEmptyRow());
+    }
+    fullRows.forEach(function (r) {
+      state.flashRows.push({ row: r, timeRemaining: FLASH_DURATION });
+    });
+    return fullRows.length;
+  }
+
+  function lockPiece() {
+    const piece = state.activePiece;
+    if (!piece) {
+      return;
+    }
+    const cells = PIECE_SHAPES[piece.type][piece.rotation];
+    for (let i = 0; i < cells.length; i++) {
+      const r = piece.row + cells[i][0];
+      const c = piece.col + cells[i][1];
+      state.board[r][c] = piece.type;
+    }
+    state.activePiece = null;
+
+    // Every lock -- whether triggered by gravity, soft drop, or hard drop --
+    // is a piece boundary. Reset all per-piece timing/movement accumulators
+    // here, once, so the next piece (or the null-spawn stopgap below) always
+    // starts clean rather than inheriting leftover progress from the piece
+    // that just locked.
+    fallTimer = 0;
+    moveTimer = 0;
+    movePrevDir = 0;
+
+    const clearedCount = clearCompletedLines();
+    if (clearedCount > 0) {
+      // SCORE_TABLE is keyed 1-4 with no fallback: a lock can clear at most
+      // 4 rows given the standard piece set (I-piece is the tallest, at 4
+      // rows), so clearedCount is always in range -- not defensively guarded.
+      //
+      // Deliberate ordering: score is awarded at the level BEFORE this
+      // clear's own line-count is folded into a possible level-up, so a
+      // clear that crosses a 10-line threshold still scores at the level
+      // the player was playing at when they made the clear, not the level
+      // they're promoted to by it.
+      state.score += SCORE_TABLE[clearedCount] * state.level;
+      state.linesCleared += clearedCount;
+      state.level = 1 + Math.floor(state.linesCleared / 10);
+    }
+
+    // Respawn happens in the same update() pass, after any line clears
+    // resolve (FR-1).
+    spawnPiece();
+  }
+
+  function stepDown() {
+    const piece = state.activePiece;
+    if (!piece) {
+      return;
+    }
+    const cells = PIECE_SHAPES[piece.type][piece.rotation];
+    if (isValidPosition(piece.row + 1, piece.col, cells)) {
+      piece.row += 1;
+    } else {
+      lockPiece();
+    }
+  }
+
+  function hardDrop() {
+    const piece = state.activePiece;
+    if (!piece) {
+      return;
+    }
+    const cells = PIECE_SHAPES[piece.type][piece.rotation];
+    while (isValidPosition(piece.row + 1, piece.col, cells)) {
+      piece.row += 1;
+    }
+    lockPiece();
+  }
+
+  function updateFlashRows(dt) {
+    for (let i = state.flashRows.length - 1; i >= 0; i--) {
+      state.flashRows[i].timeRemaining -= dt;
+      if (state.flashRows[i].timeRemaining <= 0) {
+        state.flashRows.splice(i, 1);
+      }
+    }
+  }
+
+  function update(dt) {
+    // Flash decay is purely cosmetic (never gates gameplay logic) and runs
+    // regardless of phase -- otherwise a flash triggered by the same lock
+    // that also causes Game Over would freeze mid-animation, lingering
+    // (harmlessly, hidden behind the overlay) until the next restart.
+    updateFlashRows(dt);
+
+    // Restart is checked before anything else, unconditionally -- per the
+    // FSM diagram, "R" works from Playing, Paused, or Game Over alike.
+    if (input.restart) {
+      input.restart = false;
+      restart();
+      return; // state is freshly reset this frame; nothing else needs to run
+    }
+
+    // Pause toggle is checked next, unconditionally, so "P" also works as
+    // the resume key while paused. Anything placed ABOVE the early return
+    // below runs even while paused (this is the pattern Story 1.8's "R"
+    // restart-from-paused edge followed above, ahead of even this check).
+    if (input.pause) {
+      input.pause = false;
+      if (state.phase === 'playing') {
+        state.phase = 'paused';
+      } else if (state.phase === 'paused') {
+        state.phase = 'playing';
+      }
+      // Any other phase (e.g. a future 'gameover') is untouched by "P" --
+      // explicit two-way check, not a ternary, so a phase this doesn't name
+      // is never silently toggled into 'paused'.
+    }
+
+    if (state.phase === 'paused') {
+      // No movement, timers, or input processed except resume (handled
+      // above). Clear one-shot edge-triggered flags here too: a rotate or
+      // hard-drop keypress made *while* paused must not survive to fire on
+      // the very frame "P" resumes play.
+      input.rotate = false;
+      input.hardDrop = false;
+      // The rAF loop keeps ticking through the pause (see `main`), so there
+      // is no stale lastTimestamp to reset on resume -- fallTimer/moveTimer
+      // simply stop advancing here and pick back up unchanged.
+      return;
+    }
+
+    if (state.phase === 'gameover') {
+      // Gameplay input stops entirely (FR-13); only restart (handled above,
+      // before this check) has any effect. Stale rotate/hardDrop presses
+      // made during Game Over are cleared by restart() itself, not here --
+      // Game Over's only exit is restart, unlike Paused which can also
+      // resume via "P" without going through restart()'s reset.
+      return;
+    }
+
+    if (input.rotate) {
+      input.rotate = false;
+      tryRotate();
+    }
+
+    // Left takes priority if both are held. Fresh press or direction change
+    // moves immediately; holding repeats at MOVE_REPEAT_INTERVAL, driven by
+    // the same delta-time accumulator as every other timed behavior (AD-2) --
+    // never the browser's native key-repeat.
+    const dir = input.left ? -1 : (input.right ? 1 : 0);
+    if (dir !== 0) {
+      if (dir !== movePrevDir) {
+        tryMove(0, dir);
+        moveTimer = MOVE_REPEAT_INTERVAL;
+      } else {
+        moveTimer -= dt;
+        if (moveTimer <= 0) {
+          tryMove(0, dir);
+          moveTimer += MOVE_REPEAT_INTERVAL;
+        }
+      }
+    }
+    movePrevDir = dir;
+
+    if (input.hardDrop) {
+      input.hardDrop = false;
+      hardDrop(); // locks unconditionally -> lockPiece() resets fallTimer/moveTimer/movePrevDir
+    } else if (state.activePiece) {
+      const interval = input.down ? SOFT_DROP_INTERVAL : currentFallInterval();
+      fallTimer += dt;
+      if (fallTimer >= interval) {
+        fallTimer -= interval;
+        stepDown();
+      }
+    }
+  }
+
+  function spawnPiece() {
+    // AD-5: dequeue the front, refill the tail -- queue length stays
+    // constant (>= 1) regardless of whether the spawn below succeeds.
+    const type = state.nextQueue.shift();
+    state.nextQueue.push(randomPieceType());
+    const rotation = 0;
+    const cells = PIECE_SHAPES[type][rotation];
+    if (!isValidPosition(SPAWN_ROW, SPAWN_COL, cells)) {
+      // Board is full to the top: FR-1/FR-13's spawn-blocked -> Game Over.
+      // tryMove/tryRotate/stepDown all no-op safely against a null
+      // activePiece, and update() stops processing gameplay input once
+      // phase is 'gameover' (only restart has any effect).
+      state.activePiece = null;
+      state.phase = 'gameover';
+      return;
+    }
+    state.activePiece = { type: type, rotation: rotation, row: SPAWN_ROW, col: SPAWN_COL };
+  }
+
+  // AD-8: resets board, activePiece, nextQueue, score, level, linesCleared,
+  // and the per-piece timers together in one pass -- no GAME state survives
+  // from the prior session. Also clears rotate/hardDrop: the same stale-
+  // edge-trigger leak Story 1.7 fixed for pause applies here if either was
+  // pressed during Game Over. Deliberately NOT cleared: input.left/right/
+  // down -- a still-held movement key legitimately continues to apply to
+  // the new piece, same as it would across any other frame boundary.
+  function restart() {
+    state.board = Array.from({ length: BOARD_ROWS }, createEmptyRow);
+    state.flashRows = [];
+    state.score = 0;
+    state.level = 1;
+    state.linesCleared = 0;
+    state.nextQueue = seedNextQueue();
+    fallTimer = 0;
+    moveTimer = 0;
+    movePrevDir = 0;
+    input.rotate = false;
+    input.hardDrop = false;
+    state.phase = 'playing';
+    spawnPiece(); // board is freshly empty -- this spawn always succeeds
+  }
+
+  // ---- render ----
+
+  const canvas = document.getElementById('board');
+  canvas.width = BOARD_COLS * CELL;
+  canvas.height = BOARD_ROWS * CELL;
+  const ctx = canvas.getContext('2d');
+
+  const hudScoreEl = document.getElementById('hud-score');
+  const hudLevelEl = document.getElementById('hud-level');
+  const hudLinesEl = document.getElementById('hud-lines');
+
+  function updateHud() {
+    hudScoreEl.textContent = String(state.score);
+    hudLevelEl.textContent = String(state.level);
+    hudLinesEl.textContent = String(state.linesCleared);
+  }
+
+  const overlayEl = document.getElementById('overlay');
+  const overlayTitleEl = document.getElementById('overlay-title');
+  const overlaySubtitleEl = document.getElementById('overlay-subtitle');
+  const overlayHintEl = document.getElementById('overlay-hint');
+
+  // Shared overlay, one state at a time (Architecture Structural Seed).
+  function updateOverlay() {
+    if (state.phase === 'paused') {
+      overlayEl.classList.add('visible');
+      overlayTitleEl.textContent = 'PAUSED';
+      overlayTitleEl.style.color = STATE_PAUSED_COLOR;
+      overlaySubtitleEl.textContent = '';
+      overlayHintEl.textContent = 'P: RESUME   R: RESTART'; // "R" restarts from Paused too (FSM diagram), not just Playing/Game Over
+    } else if (state.phase === 'gameover') {
+      overlayEl.classList.add('visible');
+      overlayTitleEl.textContent = 'GAME OVER';
+      overlayTitleEl.style.color = STATE_GAME_OVER_COLOR;
+      overlaySubtitleEl.textContent = 'SCORE: ' + state.score;
+      overlayHintEl.textContent = 'R: RESTART';
+    } else {
+      overlayEl.classList.remove('visible');
+    }
+  }
+
+  // 4x2 cells is the largest bounding box any piece needs at spawn rotation
+  // (rotation 0): the I-piece is 4 cols x 1 row, every other piece is at
+  // most 3 cols x 2 rows.
+  const PREVIEW_COLS = 4;
+  const PREVIEW_ROWS = 2;
+  const previewCanvas = document.getElementById('preview');
+  previewCanvas.width = PREVIEW_COLS * CELL;
+  previewCanvas.height = PREVIEW_ROWS * CELL;
+  const previewCtx = previewCanvas.getContext('2d');
+
+  // AD-5: peek index 0 only -- never mutate the queue here. Note: once
+  // Story 1.3's full-board stopgap trips (spawnPiece() stops advancing the
+  // queue), this keeps showing the same now-stale piece indefinitely --
+  // consistent with the rest of the game being frozen in that state too.
+  function renderPreview() {
+    previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+
+    const type = state.nextQueue[0];
+    const cells = PIECE_SHAPES[type][0];
+    const color = PIECE_COLORS[type];
+
+    let minRow = Infinity, maxRow = -Infinity, minCol = Infinity, maxCol = -Infinity;
+    for (let i = 0; i < cells.length; i++) {
+      minRow = Math.min(minRow, cells[i][0]);
+      maxRow = Math.max(maxRow, cells[i][0]);
+      minCol = Math.min(minCol, cells[i][1]);
+      maxCol = Math.max(maxCol, cells[i][1]);
+    }
+    const shapeRows = maxRow - minRow + 1;
+    const shapeCols = maxCol - minCol + 1;
+    // Math.floor biases the spare row/column to the bottom/right when a
+    // shape's size and the grid's size have different parity (e.g. every
+    // 3-wide piece in this 4-wide grid sits flush left; the I-piece's
+    // single row sits flush top). Deterministic, not a bug -- true
+    // pixel-symmetric centering isn't achievable at whole-cell granularity
+    // here, and UX-DR4 only asks for "centered," not sub-cell precision.
+    const rowOffset = Math.floor((PREVIEW_ROWS - shapeRows) / 2) - minRow;
+    const colOffset = Math.floor((PREVIEW_COLS - shapeCols) / 2) - minCol;
+
+    previewCtx.fillStyle = color;
+    for (let i = 0; i < cells.length; i++) {
+      previewCtx.fillRect((cells[i][1] + colOffset) * CELL, (cells[i][0] + rowOffset) * CELL, CELL, CELL);
+    }
+  }
+
+  function drawCell(row, col, color) {
+    ctx.fillStyle = color;
+    ctx.fillRect(col * CELL, row * CELL, CELL, CELL);
+  }
+
+  function render() {
+    ctx.fillStyle = BOARD_BG;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.strokeStyle = GRID_LINE;
+    ctx.lineWidth = 1;
+    for (let c = 1; c < BOARD_COLS; c++) {
+      ctx.beginPath();
+      ctx.moveTo(c * CELL + 0.5, 0);
+      ctx.lineTo(c * CELL + 0.5, canvas.height);
+      ctx.stroke();
+    }
+    for (let r = 1; r < BOARD_ROWS; r++) {
+      ctx.beginPath();
+      ctx.moveTo(0, r * CELL + 0.5);
+      ctx.lineTo(canvas.width, r * CELL + 0.5);
+      ctx.stroke();
+    }
+
+    for (let r = 0; r < BOARD_ROWS; r++) {
+      for (let c = 0; c < BOARD_COLS; c++) {
+        const cell = state.board[r][c];
+        if (cell) {
+          drawCell(r, c, PIECE_COLORS[cell]);
+        }
+      }
+    }
+
+    // Flat-color flash overlay on just-cleared row positions. Purely
+    // decorative -- state.board was already mutated synchronously in
+    // clearCompletedLines(); this never delays or reflects that mutation.
+    // Drawn over locked board cells (so it's visible against whatever
+    // shifted into that row) but BEFORE the active piece, so a freshly
+    // spawned piece is never whited out by a leftover flash from the clear
+    // that made room for it.
+    ctx.fillStyle = FLASH_COLOR;
+    for (let i = 0; i < state.flashRows.length; i++) {
+      ctx.fillRect(0, state.flashRows[i].row * CELL, canvas.width, CELL);
+    }
+
+    if (state.activePiece) {
+      const piece = state.activePiece;
+      const cells = PIECE_SHAPES[piece.type][piece.rotation];
+      const color = PIECE_COLORS[piece.type];
+      for (let i = 0; i < cells.length; i++) {
+        drawCell(piece.row + cells[i][0], piece.col + cells[i][1], color);
+      }
+    }
+
+    updateHud();
+    renderPreview();
+    updateOverlay();
+  }
+
+  // ---- main ----
+  // AD-2: requestAnimationFrame with a delta-time accumulator; entering/leaving
+  // Paused (Story 1.7) will stop/reset this, but there's no pause yet, so it
+  // just runs continuously.
+
+  spawnPiece();
+
+  let lastTimestamp = null;
+  const MAX_DT = 0.1; // seconds; clamp so a backgrounded/refocused tab can't
+  // produce one huge dt -- without this, fallTimer would sit far above its
+  // interval for several frames after refocus, firing a rapid burst of
+  // consecutive stepDown()/lock calls the player never intended. The lost
+  // real time beyond this cap is simply dropped, not caught up later.
+
+  function loop(timestamp) {
+    if (lastTimestamp === null) {
+      lastTimestamp = timestamp;
+    }
+    const dt = Math.min((timestamp - lastTimestamp) / 1000, MAX_DT);
+    lastTimestamp = timestamp;
+
+    update(dt);
+    render();
+
+    requestAnimationFrame(loop);
+  }
+
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

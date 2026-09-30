@@ -1,0 +1,20 @@
+# Local Claude Code permission state (personal, absolute-path-specific)
+**/.claude/settings.local.json
+
+# Python
+**/__pycache__/
+*.pyc
+**/.venv/
+**/*.egg-info/
+**/.pytest_cache/
+
+# Secrets
+**/.env
+
+# LangGraph driver run state (local session checkpoints, regenerated on run)
+bmad-langgraph/driver_state.sqlite
+bmad-langgraph/driver_thread_id.txt
+
+# OS cruft
+.DS_Store
+Thumbs.db

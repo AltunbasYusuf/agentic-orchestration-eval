@@ -1,0 +1,222 @@
+<!--
+  Key-screen mock: the single play-field surface, three states.
+  Governed by: DESIGN.md (Colors, Typography, Layout & Spacing, Shapes, Components)
+               EXPERIENCE.md (Foundation, Component Patterns, State Patterns)
+  Static illustration only — no JS, no network, offline-renderable.
+-->
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Browser Tetris — Key Screens</title>
+<style>
+  :root {
+    --surface-bg: #0b0d0c;
+    --surface-panel: #121512;
+    --board-bg: #000000;
+    --grid-line: #173617;
+    --outline: #33ff33;
+    --text-primary: #33ff33;
+    --text-dim: #1f7a1f;
+    --state-paused: #ffb000;
+    --state-game-over: #ff3333;
+    --i-cyan: #00f0f0;
+    --o-yellow: #f0f000;
+    --t-purple: #a000f0;
+    --s-green: #00f000;
+    --z-red: #f00000;
+    --j-blue: #0000f0;
+    --l-orange: #f0a000;
+    --cell: 24px;
+    --gutter: 16px;
+    --panel-padding: 12px;
+  }
+  body {
+    background: #1a1a1a;
+    font-family: ui-monospace, 'Courier New', monospace;
+    color: #ccc;
+    padding: 24px;
+    margin: 0;
+  }
+  h1 { font-size: 14px; color: #888; font-weight: 400; margin: 0 0 16px; }
+  .screens { display: flex; gap: 32px; flex-wrap: wrap; }
+  .screen {
+    background: #2a2a2a;
+    border-radius: 6px;
+    overflow: hidden;
+    width: fit-content;
+  }
+  .screen .titlebar {
+    background: #3a3a3a;
+    color: #aaa;
+    font-size: 11px;
+    padding: 6px 10px;
+    letter-spacing: 0.05em;
+  }
+  .app {
+    background: var(--surface-bg);
+    padding: var(--gutter);
+    display: flex;
+    gap: var(--gutter);
+    position: relative;
+  }
+  .board {
+    position: relative;
+    width: calc(var(--cell) * 10);
+    height: calc(var(--cell) * 20);
+    background-color: var(--board-bg);
+    background-image:
+      linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+    background-size: var(--cell) var(--cell);
+    border: 1px solid var(--outline);
+  }
+  .cell {
+    position: absolute;
+    width: var(--cell);
+    height: var(--cell);
+    box-sizing: border-box;
+    border: 1px solid rgba(0,0,0,0.4);
+  }
+  .hud {
+    background: var(--surface-panel);
+    border: 1px solid var(--outline);
+    padding: var(--panel-padding);
+    width: 96px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .hud .label { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; color: var(--text-dim); }
+  .hud .value { font-size: 14px; color: var(--text-primary); margin-top: 2px; }
+  .preview {
+    background: var(--surface-panel);
+    border: 1px solid var(--outline);
+    width: calc(var(--cell) * 3);
+    height: calc(var(--cell) * 3);
+    margin-top: 2px;
+    position: relative;
+  }
+  .hint { font-size: 10px; color: var(--text-dim); letter-spacing: 0.05em; margin-top: auto; }
+  .overlay {
+    position: absolute;
+    inset: var(--gutter) auto var(--gutter) var(--gutter);
+    width: calc(var(--cell) * 10 + 2px);
+    height: calc(var(--cell) * 20 + 2px);
+    background: rgba(0,0,0,0.85);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+  }
+  .overlay .big { font-size: 32px; font-weight: 700; letter-spacing: 0.02em; }
+  .overlay .sub { font-size: 16px; font-weight: 700; letter-spacing: 0.05em; }
+  .overlay .hint { font-size: 11px; }
+</style>
+</head>
+<body>
+  <h1>Browser Tetris — play field, three states (Playing / Paused / Game Over)</h1>
+  <div class="screens">
+
+    <!-- PLAYING -->
+    <div class="screen">
+      <div class="titlebar">PLAYING (default state)</div>
+      <div class="app">
+        <div class="board">
+          <!-- locked rows near bottom, one gap column -->
+          <div class="cell" style="left:0px; top:432px; background:var(--l-orange);"></div>
+          <div class="cell" style="left:24px; top:432px; background:var(--l-orange);"></div>
+          <div class="cell" style="left:48px; top:432px; background:var(--j-blue);"></div>
+          <div class="cell" style="left:72px; top:432px; background:var(--j-blue);"></div>
+          <div class="cell" style="left:120px; top:432px; background:var(--s-green);"></div>
+          <div class="cell" style="left:144px; top:432px; background:var(--s-green);"></div>
+          <div class="cell" style="left:168px; top:432px; background:var(--z-red);"></div>
+          <div class="cell" style="left:192px; top:432px; background:var(--z-red);"></div>
+          <div class="cell" style="left:216px; top:432px; background:var(--o-yellow);"></div>
+          <div class="cell" style="left:0px; top:456px; background:var(--i-cyan);"></div>
+          <div class="cell" style="left:24px; top:456px; background:var(--i-cyan);"></div>
+          <div class="cell" style="left:48px; top:456px; background:var(--i-cyan);"></div>
+          <div class="cell" style="left:72px; top:456px; background:var(--i-cyan);"></div>
+          <!-- active piece: T, mid-fall -->
+          <div class="cell" style="left:96px; top:120px; background:var(--t-purple);"></div>
+          <div class="cell" style="left:72px; top:144px; background:var(--t-purple);"></div>
+          <div class="cell" style="left:96px; top:144px; background:var(--t-purple);"></div>
+          <div class="cell" style="left:120px; top:144px; background:var(--t-purple);"></div>
+        </div>
+        <div class="hud">
+          <div>
+            <div class="label">SCORE</div>
+            <div class="value">4200</div>
+          </div>
+          <div>
+            <div class="label">LEVEL</div>
+            <div class="value">4</div>
+          </div>
+          <div>
+            <div class="label">LINES</div>
+            <div class="value">23</div>
+          </div>
+          <div>
+            <div class="label">NEXT</div>
+            <div class="preview">
+              <div class="cell" style="left:0px; top:24px; background:var(--o-yellow); position:absolute;"></div>
+              <div class="cell" style="left:24px; top:24px; background:var(--o-yellow); position:absolute;"></div>
+              <div class="cell" style="left:0px; top:48px; background:var(--o-yellow); position:absolute;"></div>
+              <div class="cell" style="left:24px; top:48px; background:var(--o-yellow); position:absolute;"></div>
+            </div>
+          </div>
+          <div class="hint">P: PAUSE<br>R: RESTART</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAUSED -->
+    <div class="screen">
+      <div class="titlebar">PAUSED (overlay on Playing)</div>
+      <div class="app">
+        <div class="board">
+          <div class="cell" style="left:0px; top:432px; background:var(--l-orange);"></div>
+          <div class="cell" style="left:24px; top:432px; background:var(--l-orange);"></div>
+          <div class="cell" style="left:48px; top:432px; background:var(--j-blue);"></div>
+          <div class="cell" style="left:0px; top:456px; background:var(--i-cyan);"></div>
+          <div class="overlay">
+            <div class="big" style="color:var(--state-paused);">PAUSED</div>
+            <div class="hint">P: RESUME</div>
+          </div>
+        </div>
+        <div class="hud">
+          <div><div class="label">SCORE</div><div class="value">4200</div></div>
+          <div><div class="label">LEVEL</div><div class="value">4</div></div>
+          <div><div class="label">LINES</div><div class="value">23</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- GAME OVER -->
+    <div class="screen">
+      <div class="titlebar">GAME OVER (overlay on Playing)</div>
+      <div class="app">
+        <div class="board">
+          <div class="cell" style="left:0px; top:24px; background:var(--l-orange);"></div>
+          <div class="cell" style="left:24px; top:24px; background:var(--j-blue);"></div>
+          <div class="cell" style="left:48px; top:24px; background:var(--s-green);"></div>
+          <div class="cell" style="left:72px; top:24px; background:var(--z-red);"></div>
+          <div class="cell" style="left:96px; top:24px; background:var(--i-cyan);"></div>
+          <div class="overlay">
+            <div class="big" style="color:var(--state-game-over);">GAME OVER</div>
+            <div class="sub" style="color:var(--text-primary);">SCORE: 4200</div>
+            <div class="hint">R: RESTART</div>
+          </div>
+        </div>
+        <div class="hud">
+          <div><div class="label">SCORE</div><div class="value">4200</div></div>
+          <div><div class="label">LEVEL</div><div class="value">4</div></div>
+          <div><div class="label">LINES</div><div class="value">23</div></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>
