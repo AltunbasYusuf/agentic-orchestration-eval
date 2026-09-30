@@ -1,4 +1,4 @@
-# BMAD Agents vs. Plain Claude: A Tetris Case Study
+# BMAD Standalone vs. BMAD-Integrated LangGraph vs. Plain Claude: A Tetris Research
 
 Same small spec — *"a simple, self-contained, browser-based, single-player
 Tetris with arrow-key controls, line clearing, score, increasing speed, and
@@ -65,7 +65,7 @@ detection, gravity-correct line clearing (rows above a cleared line shift
 down, rows below are untouched), the standard 100/300/500/800 × level
 scoring table, and game-over on blocked spawn.
 
-## Observations (n=1, anecdotal — not a controlled study)
+## Observations (n=1, anecdotal — not a controlled experiment)
 
 - **The heaviest process was the most conservative, and the most honest
   about it.** bmad-standalone's output tracks its spec almost literally —
